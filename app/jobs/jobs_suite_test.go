@@ -18,8 +18,9 @@ func TestJobs(t *testing.T) {
 
 var _ = Describe("Workers", func() {
 	It("builds a bundle with the email workers", func() {
-		workers, registered := jobs.Workers(slog.New(slog.NewTextHandler(io.Discard, nil)), jobs.Deps{})
+		workers, periodic, registered := jobs.Workers(slog.New(slog.NewTextHandler(io.Discard, nil)), jobs.Deps{})
 		Expect(workers).NotTo(BeNil())
+		Expect(periodic).To(BeEmpty())
 		Expect(registered).To(BeTrue())
 	})
 })

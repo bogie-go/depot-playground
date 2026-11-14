@@ -29,37 +29,48 @@ func userRequest(authorization string) *httptest.ResponseRecorder {
 }
 
 var _ = Describe("RequireUser", func() {
-	var (
-		good, expired string
-		rec           *httptest.ResponseRecorder
-	)
-
-	BeforeEach(func() {
-		var err error
-		good, err = testTokens.Mint("user-42", time.Minute)
-		Expect(err).NotTo(HaveOccurred())
-		expired, err = testTokens.Mint("user-42", -time.Minute)
-		Expect(err).NotTo(HaveOccurred())
-	})
+	var rec *httptest.ResponseRecorder
 
 	Context("with a good token", func() {
 		BeforeEach(func() {
+			good, err := testTokens.Mint("user-42", time.Minute)
+			Expect(err).NotTo(HaveOccurred())
 			rec = userRequest("Bearer " + good)
 		})
 
-		It("lets the request through with its subject", func() {
-			Expect(rec.Code).To(Equal(http.StatusOK))
-			Expect(rec.Body.String()).To(Equal("user-42"))
-		})
+		It("lets the request through", func() { Expect(rec.Code).To(Equal(http.StatusOK)) })
+		It("puts the subject on the context", func() { Expect(rec.Body.String()).To(Equal("user-42")) })
 	})
 
-	DescribeTable("answers 401",
-		func(header func() string) {
-			Expect(userRequest(header()).Code).To(Equal(http.StatusUnauthorized))
-		},
-		Entry("with no token", func() string { return "" }),
-		Entry("with an expired token", func() string { return "Bearer " + expired }),
-		Entry("with garbage", func() string { return "Bearer nope" }),
-		Entry("with the wrong scheme", func() string { return "Basic " + good }),
-	)
+	Context("with no token", func() {
+		BeforeEach(func() { rec = userRequest("") })
+
+		It("answers 401", func() { Expect(rec.Code).To(Equal(http.StatusUnauthorized)) })
+	})
+
+	Context("with an expired token", func() {
+		BeforeEach(func() {
+			expired, err := testTokens.Mint("user-42", -time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+			rec = userRequest("Bearer " + expired)
+		})
+
+		It("answers 401", func() { Expect(rec.Code).To(Equal(http.StatusUnauthorized)) })
+	})
+
+	Context("with garbage", func() {
+		BeforeEach(func() { rec = userRequest("Bearer nope") })
+
+		It("answers 401", func() { Expect(rec.Code).To(Equal(http.StatusUnauthorized)) })
+	})
+
+	Context("with the wrong scheme", func() {
+		BeforeEach(func() {
+			good, err := testTokens.Mint("user-42", time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+			rec = userRequest("Basic " + good)
+		})
+
+		It("answers 401", func() { Expect(rec.Code).To(Equal(http.StatusUnauthorized)) })
+	})
 })
